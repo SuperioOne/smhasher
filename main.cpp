@@ -459,8 +459,12 @@ HashInfo g_hashes[] =
         {CityHash64_low_test, 32, 0x6C4EF416, "City64low", "Google CityHash64WithSeed (v1.1)(low 32-bits)", GOOD, {}},
         {Rust_Test_cityhash_64, 32, 0x6C4EF416, "City64low_R", "Google CityHash64WithSeed (v1.1)(low 32-bits)(Rust FFI)", GOOD, {}},
 #if defined(HAVE_SSE42) && defined(__x86_64__)
-        {CityHash128_test, 128, 0x6531F54E, "City128", "Google CityHash128WithSeed (old)", GOOD, {}},
-        {CityHashCrc128_test, 128, 0xD4389C97, "CityCrc128", "Google CityHashCrc128WithSeed SSE4.2 (old)", GOOD, {}},
+        {CityHash128_test, 128, 0x305C0D9A, "City128", "Google CityHash128WithSeed (v1.1)", GOOD, {}},
+        {Rust_Test_cityhash_128, 128, 0x305C0D9A, "City128_R", "Google CityHash128WithSeed (v1.1)(Rust FFI)", GOOD, {}},
+        {CityHashCrc128_test, 128, 0x98C09AB4, "CityCrc128", "Google CityHashCrc128WithSeed SSE4.2 (v1.1)", GOOD, {}},
+        {Rust_Test_cityhash_128crc, 128, 0x98C09AB4, "CityCrc128_R", "Google CityHashCrc128WithSeed SSE4.2 (v1.1)(Rust FFI)", GOOD, {}},
+        {CityHashCrc256_test, 256, 0x2A7036C8, "CityCrc256", "Google CityHashCrc256 SSE4.2 (v1.1)", GOOD, {}},
+        {Rust_Test_cityhash_256crc, 256, 0x2A7036C8, "CityCrc256_R", "Google CityHashCrc256 SSE4.2 (v1.1)(Rust FFI)", GOOD, {}},
 #endif
 
 #if defined(__FreeBSD__) || defined(HAVE_ASAN)
