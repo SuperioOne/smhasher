@@ -7,11 +7,12 @@ if(POLICY CMP0065)
   cmake_policy(SET CMP0065 NEW) # since 3.4. ENABLE_EXPORTS.
 endif()
 if(POLICY CMP0066) # honor per-config flags in try_compile() source-file
-                   # signature.
+  # signature.
   cmake_policy(SET CMP0066 NEW) # since 3.7
 endif()
 
 project(SMHasher C CXX ASM)
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 include(CheckCCompilerFlag)
 # Check if the same compile family is used for both C and CXX
@@ -123,7 +124,7 @@ if(NOT CMAKE_CROSSCOMPILING)
     string(REGEX REPLACE "^.*(PCLMULQDQ).*$" "\\1" CLMUL_THERE "${CPUINFO}")
     string(COMPARE EQUAL "PCLMULQDQ" "${CLMUL_THERE}" CLMUL_TRUE)
     string(REGEX REPLACE "^.*(SHA).*$" "\\1" SHA_THERE "${CPUINFO}") # SHA1,SHA2
-                                                                   # actually
+    # actually
     string(COMPARE EQUAL "SHA" "${SHA_THERE}" SHA_TRUE)
     string(REGEX REPLACE "^.* (AVX2) .*$" "\\1" AVX2_THERE "${CPUINFO}")
     string(COMPARE EQUAL "AVX2" "${AVX2_THERE}" AVX2_TRUE)
@@ -175,22 +176,23 @@ if(NOT CMAKE_CROSSCOMPILING)
 endif(NOT CMAKE_CROSSCOMPILING)
 
 if(PROCESSOR_FAMILY STREQUAL "Intel")
- if(CMAKE_COMPILER_IS_GNUCC)
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(CMAKE_ASM_FLAGS "${CFLAGS} -m64")
-  elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(CMAKE_ASM_FLAGS "${CFLAGS} -m32")
-  endif()
- elseif((CMAKE_C_COMPILER_ID STREQUAL AppleClang) OR (CMAKE_C_COMPILER_ID
+  if(CMAKE_COMPILER_IS_GNUCC)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(CMAKE_ASM_FLAGS "${CFLAGS} -m64")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set(CMAKE_ASM_FLAGS "${CFLAGS} -m32")
+    endif()
+  elseif((CMAKE_C_COMPILER_ID STREQUAL AppleClang) OR (CMAKE_C_COMPILER_ID
                                                      STREQUAL Clang))
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(CMAKE_ASM_FLAGS "${CFLAGS} -arch x86_64")
-  elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set(CMAKE_ASM_FLAGS "${CFLAGS} -arch i386")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      set(CMAKE_ASM_FLAGS "${CFLAGS} -arch x86_64")
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+      set(CMAKE_ASM_FLAGS "${CFLAGS} -arch i386")
+    endif()
   endif()
- endif()
 endif()
 
+set(RUST_TARGET "-Ctarget-cpu=native")
 # AddressSanitize
 set(CMAKE_C_FLAGS_ASAN
     "-fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g -O1 -DHAVE_ASAN"
@@ -366,6 +368,7 @@ endif()
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
   add_definitions(-DHAVE_BIT32)
 endif()
+
 
 # probe for HAVE_ALIGNED_ACCESS_REQUIRED
 if(NOT CMAKE_CROSSCOMPILING)
@@ -645,6 +648,18 @@ if((CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 9)
   check_ipo_supported(RESULT ipo_supported OUTPUT error)
 endif()
 
+if(SSE42_TRUE)
+  set(RUST_FEATURES "-Ctarget-feature=+sse4.2")
+endif()
+
+add_custom_target(RustLib ALL
+COMMAND cargo build --release
+COMMENT "Executing cargo build for superioone-algorithms-ffi"
+WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/superioone-algorithms-ffi"
+)
+
+link_directories("${CMAKE_CURRENT_SOURCE_DIR}/superioone-algorithms-ffi/target/release")
+
 add_library(
   SMHasherSupport STATIC
   AvalancheTest.cpp
@@ -743,7 +758,7 @@ else()
   message(STATUS "IPO / LTO not supported: <${error}>")
 endif()
 
-target_link_libraries(SMHasher SMHasherSupport
+target_link_libraries(SMHasher SMHasherSupport superioone_algorithms_ffi
                       ${HIGHWAY_LIB} ${BLAKE3_LIB} ${AHASH_C_LIB}
                       ${CMAKE_THREAD_LIBS_INIT})
 

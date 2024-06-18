@@ -19,3 +19,7 @@
 [submodule "polymur-hash"]
 	path = polymur-hash
 	url = https://github.com/orlp/polymur-hash
+[submodule "superioone-algorithms"]
+	path = superioone-algorithms
+	url = https://github.com/SuperioOne/algorithms.git
+	branch = master

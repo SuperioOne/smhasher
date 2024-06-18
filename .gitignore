@@ -25,6 +25,9 @@ prof.h
 /PowerHash/
 .gdbinit
 
+# clangd
+.cache/
+
 # Apple artefact
 .DS_Store
 
