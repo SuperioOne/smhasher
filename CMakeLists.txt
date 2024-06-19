@@ -192,7 +192,6 @@ if(PROCESSOR_FAMILY STREQUAL "Intel")
   endif()
 endif()
 
-set(RUST_TARGET "-Ctarget-cpu=native")
 # AddressSanitize
 set(CMAKE_C_FLAGS_ASAN
     "-fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g -O1 -DHAVE_ASAN"
@@ -203,6 +202,8 @@ set(CMAKE_CXX_FLAGS_ASAN
     CACHE STRING
           "Flags used by the C++ compiler during AddressSanitizer builds."
           FORCE)
+
+set(RUST_TARGET "native")
 
 if(CMAKE_COMPILER_IS_GNUCC
    OR (CMAKE_C_COMPILER_ID STREQUAL AppleClang)
@@ -259,6 +260,7 @@ if(SSE42_TRUE)
   set(SSE42_FOUND
       true
       CACHE BOOL "SSE4.2 available")
+  string(JOIN "," RUST_FEATURES "+sse4.2" "${RUST_FEATURES}")
 else(SSE42_TRUE)
   set(SSE42_FOUND
       false
@@ -649,11 +651,10 @@ if((CMAKE_MAJOR_VERSION EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 9)
 endif()
 
 if(SSE42_TRUE)
-  set(RUST_FEATURES "-Ctarget-feature=+sse4.2")
 endif()
 
 add_custom_target(RustLib ALL
-COMMAND cargo build --release
+COMMAND env RUSTFLAGS="-Ctarget-cpu=${RUST_TARGET};-Ctarget-feature=${RUST_FEATURES}" cargo build --release
 COMMENT "Executing cargo build for superioone-algorithms-ffi"
 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/superioone-algorithms-ffi"
 )

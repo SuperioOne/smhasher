@@ -1,6 +1,6 @@
 use algorithms::hash::{
     cityhash::hash_fn::{
-        cityhash_128, cityhash_128_with_seed, cityhash_64, cityhash_64_with_seed,
+        cityhash_128, cityhash_128_with_seed, cityhash_32, cityhash_64, cityhash_64_with_seed,
         cityhash_crc128_with_seed, cityhash_crc256,
     },
     crc::hash_fn::crc32c_with_initial,
@@ -43,6 +43,13 @@ pub extern "C" fn rust_murmur3_32(input: *const c_void, len: usize, seed: u32, o
 pub extern "C" fn rust_crc32c(input: *const c_void, len: usize, seed: u32, out: *mut c_void) {
     let bytes = byte_slice!(input, len);
     let hash_bytes = crc32c_with_initial(bytes, seed).to_ne_bytes();
+    copy_to_output!(out, hash_bytes);
+}
+
+#[no_mangle]
+pub extern "C" fn rust_cityhash_32(input: *const c_void, len: usize, out: *mut c_void) {
+    let bytes = byte_slice!(input, len);
+    let hash_bytes = cityhash_32(bytes).to_ne_bytes();
     copy_to_output!(out, hash_bytes);
 }
 
