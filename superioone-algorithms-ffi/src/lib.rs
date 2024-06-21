@@ -47,9 +47,9 @@ pub extern "C" fn rust_crc32c(input: *const c_void, len: usize, seed: u32, out: 
 }
 
 #[no_mangle]
-pub extern "C" fn rust_cityhash_32(input: *const c_void, len: usize, out: *mut c_void) {
+pub extern "C" fn rust_cityhash_32(input: *const c_void, len: usize, seed: u32, out: *mut c_void) {
     let bytes = byte_slice!(input, len);
-    let hash_bytes = cityhash_32(bytes).to_ne_bytes();
+    let hash_bytes = cityhash_32(bytes, seed).to_ne_bytes();
     copy_to_output!(out, hash_bytes);
 }
 
