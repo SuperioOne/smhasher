@@ -341,7 +341,7 @@ HashInfo g_hashes[] =
 #endif
 #endif
 #endif
-        {CityHash32_test, 32, 0x68254F81, "City32", "Google CityHash32 (v1.1)", POOR, {0x2eb38c9f} /* !! */},
+        {CityHash32_test, 32, 0xEDED9084, "City32", "Google CityHash32 (v1.1)", POOR, {0x2eb38c9f} /* !! */},
         {Rust_Test_cityhash_32, 32, 0x68254F81, "City32_R", "Google CityHash32 (v1.1)(Rust FFI)", POOR, {0x2eb38c9f} /* !! */},
 #ifdef HAVE_INT64
         {metrohash64_test, 64, 0x6FA828C9, "metrohash64", "MetroHash64, 64-bit", POOR, {}},

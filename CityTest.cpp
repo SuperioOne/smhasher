@@ -3,17 +3,17 @@
 
 void CityHash32_test(const void *key, int len, uint32_t seed, void *out) {
   // objsize 0-527: 1319
-  *(uint32 *)out = CityHash32((const char *)key, len);
+  *(uint32_t *)out = CityHash32WithSeed((const char *)key, len, seed);
 }
 
 void CityHash64_test(const void *key, int len, uint32_t seed, void *out) {
   // objsize 1038 + a20-a72: 82 = 1120
-  *(uint64 *)out = CityHash64WithSeed((const char *)key, len, seed);
+  *(uint64_t *)out = CityHash64WithSeed((const char *)key, len, seed);
 }
 
 void CityHash64noSeed_test(const void *key, int len, uint32_t seed, void *out) {
   // objsize 530-93e: 1038
-  *(uint64 *)out = CityHash64((const char *)key, len);
+  *(uint64_t *)out = CityHash64((const char *)key, len);
   (void)seed;
 }
 
@@ -35,6 +35,7 @@ void CityHashCrc128_test(const void *key, int len, uint32_t seed, void *out) {
 }
 
 void CityHashCrc256_test(const void *key, int len, uint32_t seed, void *out) {
-  CityHashCrc256((const char *)key, len, (uint64 *)out);
+  CityHashCrc256((const char *)key, len, (uint64_t *)out);
+  (void)seed;
 }
 #endif
