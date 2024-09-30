@@ -13,6 +13,11 @@
 using namespace std;
 #include <assert.h>
 
+#define MACRO_ITOA_(x) #x
+#define MACRO_ITOA(x) MACRO_ITOA_(x)
+#define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+#define ARRAY_END(x) (&(x)[COUNT_OF(x)])
+
 //-----------------------------------------------------------------------------
 // If the optimizer detects that a value in a speed test is constant or unused,
 // the optimizer may remove references to it or otherwise create code that

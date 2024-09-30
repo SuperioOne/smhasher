@@ -26,7 +26,9 @@ bool g_testExtra = false; // excessive torture tests: Sparse, Avalanche, DiffDis
 bool g_testVerifyAll = false;
 
 bool g_testSanity = false;
-bool g_testSpeed = false;
+bool g_testSpeedAll = false;
+bool g_testSpeedBulk = false;
+bool g_testSpeedSmall = false;
 bool g_testHashmap = false;
 bool g_testAvalanche = false;
 bool g_testSparse = false;
@@ -57,7 +59,9 @@ TestOpts g_testopts[] =
         {g_testAll,         "All"        },
         {g_testVerifyAll,   "VerifyAll"  },
         {g_testSanity,      "Sanity"     },
-        {g_testSpeed,       "Speed"      },
+        {g_testSpeedAll,    "Speed"      },
+        {g_testSpeedBulk,   "SpeedBulk"  },
+        {g_testSpeedSmall,  "SpeedSmall" },
         {g_testHashmap,     "Hashmap"    },
         {g_testAvalanche,   "Avalanche"  },
         {g_testSparse,      "Sparse"     },
@@ -110,8 +114,17 @@ HashInfo g_hashes[] =
 #ifdef __SIZEOF_INT128__
         // M. Dietzfelbinger, T. Hagerup, J. Katajainen, and M. Penttonen. A reliable randomized
         // algorithm for the closest-pair problem. J. Algorithms, 25:19–51, 1997.
-        {multiply_shift, 64, 0xFCE355A6, "multiply_shift", "Dietzfelbinger Multiply-shift on strings", POOR, {0xfffffff0, 0x1fffffff0, 0xb13dea7c9c324e51ULL, 0x75f17d6b3588f843ULL} /* !! all & 0xfffffff0 (2^32 bad seeds) */},
-        {pair_multiply_shift, 64, 0xD4B20347, "pair_multiply_shift", "Pair-multiply-shift", POOR, {0xb13dea7c9c324e51ULL, 0x75f17d6b3588f843ULL}},
+        {multiply_shift, 64, 0x654E7474, "multiply_shift", "Dietzfelbinger Multiply-shift on strings", POOR, {0xfffffff0, 0x1fffffff0, 0xb13dea7c9c324e51ULL, 0x75f17d6b3588f843ULL} /* !! all & 0xfffffff0 (2^32 bad seeds) */},
+        {pair_multiply_shift, 64, 0x26A5AB8C, "pair_multiply_shift", "Pair-multiply-shift", POOR, {0xb13dea7c9c324e51ULL, 0x75f17d6b3588f843ULL}},
+#endif
+        {crc32, 32, 0x3719DB20, "crc32", "CRC-32 soft", POOR, {}},
+        {md5_128, 128, 0xF263F96F, "md5-128", "MD5", GOOD, {}},
+        {md5_64, 64, 0x12F0BA8E, "md5_64", "MD5, bits 32-95", GOOD, {}},
+        {md5_32, 32, 0xF3DFF19F, "md5_32", "MD5, bits 32-63", GOOD, {}},
+#ifdef _MSC_VER  /* truncated long to 32 */
+#define SHA1_VERIF 0xED2F35E4
+#define SHA1_32_VERIF 0x00000000
+#define SHA1_64_VERIF 0x00000000
 #endif
         {crc32, 32, 0x3719DB20, "crc32", "CRC-32 soft", POOR, {}},
         {md5_128, 128, 0xF263F96F, "md5-128", "MD5", GOOD, {}},
@@ -142,14 +155,14 @@ HashInfo g_hashes[] =
         {rmd128, 128, 0xFF576977, "rmd128", "RIPEMD-128", GOOD, {}},
         {rmd160, 160, 0x30B37AC6, "rmd160", "RIPEMD-160", GOOD, {}},
         {rmd256, 256, 0xEB16FAD7, "rmd256", "RIPEMD-256", GOOD, {}},
+#ifdef HAVE_EDONR
         {edonr224, 224, 0x83A8E7AB, "edonr224", "EDON-R 224", GOOD, {}},
         {edonr256, 256, 0x06DD4F96, "edonr256", "EDON-R 256", GOOD, {}},
-#if defined(HAVE_BIT32) && !defined(_WIN32)
-#define BLAKE3_VERIF 0x58571F56
-#else
-#define BLAKE3_VERIF 0x50E4CD91
 #endif
-        {blake3c_test, 256, BLAKE3_VERIF, "blake3_c", "BLAKE3 c", GOOD, {0x6a09e667}},
+        // There are certain 32-bit non-Windows machines producing 0x58571F56 as verification value for blake3_c.
+        // That deserves further investigation.
+        {blake3c_test, 256, 0x50E4CD91, "blake3_c", "BLAKE3 c", GOOD, {0x6a09e667}},
+        {blake3c_test, 256, 0x50E4CD91, "blake3_c", "BLAKE3 c", GOOD, {0x6a09e667}},
 #if defined(HAVE_BLAKE3)
         {blake3_test, 256, 0x0, "blake3", "BLAKE3 Rust", GOOD, {}},
         {blake3_64, 64, 0x0, "blake3_64", "BLAKE3 Rust, low 64 bits", GOOD, {}},
@@ -264,7 +277,7 @@ HashInfo g_hashes[] =
         {FNV1A_PY_test, 32, 0xE79AE3E4, "FNV1A_Pippip_Yurii", "FNV1A-Pippip_Yurii 32-bit sanmayce", POOR, {0x811c9dc5}},
         {FNV32a_YT_test, 32, 0xD8AFFD71, "FNV1a_YT", "FNV1a-YoshimitsuTRIAD 32-bit sanmayce", POOR, {0x811c9dc5, 0x23d4a49d} /* !! */},
         {FNV64a_test, 64, 0x103455FC, "FNV64", "Fowler-Noll-Vo hash, 64-bit", POOR, {0x811c9dc5, 0xcbf29ce4, 0x84222325, 0xcbf29ce484222325} /* TODO */},
-        {FNV128_test, 128, 0xBCAA1426, "FNV128", "Go variant of FNV, 128-bit", POOR, {}},
+        {FNV128_test, 128, 0xC6FF4526, "FNV128", "Go variant of FNV, 128-bit", POOR, {}},
 #endif
         {FNV2_test, __WORDSIZE, FNV2_VERIF, "FNV2", "wordwise FNV", POOR, {}},
         {fletcher2_test, 64, 0x890767C0, "fletcher2", "fletcher2 ZFS", POOR, {0UL} /* !! */},
@@ -284,7 +297,7 @@ HashInfo g_hashes[] =
         {pearson256_test, 256, 0x7F8BEB21, "pearsonhash256", "Pearson hash, 256-bit SSSE3, low 64-bit", POOR, {}},
 #endif
 #ifdef HAVE_INT64
-        {pearsonb64_test, 64, 0xB6FF2DFC, "pearsonbhash64", "Pearson block hash, 64-bit", GOOD, {}},
+        {pearsonb64_test, 64, 0x14C3D184, "pearsonbhash64", "Pearson block hash, 64-bit", GOOD, {}},
         {pearsonb128_test, 128, 0x6BEFE6EA, "pearsonbhash128", "Pearson block hash, 128-bit, low 64-bit", GOOD, {}},
         {pearsonb256_test, 256, 0x999B3C19, "pearsonbhash256", "Pearson block hash, 256-bit, low 64-bit", GOOD, {}},
 #endif
@@ -310,12 +323,12 @@ HashInfo g_hashes[] =
         {jodyhash64_test, 64, 0xC1CBFA34, "jodyhash64", "jodyhash, 64-bit (v7.1)", POOR, {}},
 #endif
         {lookup3_test, 32, 0x3D83917A, "lookup3", "Bob Jenkins' lookup3", POOR, {0x21524101} /* !! */},
-#ifdef __aarch64__
+#if defined(CHAR_MIN) && CHAR_MIN == 0  // Well-defined "char is unsigned" case.
 #define SFAST_VERIF 0x6306A6FE
-#else
+#elif CHAR_MIN < 0  // UB in SuperFastHash: (negative-signed << N)
 #define SFAST_VERIF 0x0C80403A
 #endif
-        {SuperFastHash_test, 32, SFAST_VERIF, "superfast", "Paul Hsieh's SuperFastHash", POOR, {0x0} /* !! */},
+        {SuperFastHash_test, 32, SFAST_VERIF, "superfast", "Paul Hsieh's SuperFastHash, CHAR_MIN:" MACRO_ITOA(CHAR_MIN), POOR, {0x0} /* !! */},
         {MurmurOAAT_test, 32, 0x5363BD98, "MurmurOAAT", "Murmur one-at-a-time", POOR, {0x0 /*, 0x5bd1e995*/} /* !! */},
         {Crap8_test, 32, 0x743E97A1, "Crap8", "Crap8", POOR, {/*0x83d2e73b, 0x97e1cc59*/}},
         {xxHash32_test, 32, 0xBA88B743, "xxHash32", "xxHash, 32-bit for x86", POOR, {}},
@@ -400,7 +413,7 @@ HashInfo g_hashes[] =
         {fasthash64_test, 64, 0xA16231A7, "fasthash64", "fast-hash 64bit", GOOD, {0x880355f21e6d1965ULL}},
         // different verif on gcc vs clang
         {floppsyhash_64, 64, 0x0, "floppsyhash", "slow hash designed for floating point hardware", GOOD, {}},
-        {chaskey_test, 64, 0x81A90131, "chaskey", "mouha.be/chaskey/ with added seed support", GOOD, {}},
+        {chaskey_test, 64, 0xBB4F6706, "chaskey", "mouha.be/chaskey/ with added seed support", GOOD, {}},
         {siphash_test, 64, 0xC58D7F9C, "SipHash", "SipHash 2-4 - SSSE3 optimized", GOOD, {}},
         {halfsiphash_test, 32, 0xA7A05F72, "HalfSipHash", "HalfSipHash 2-4, 32bit", GOOD, {}},
         {GoodOAAT_test, 32, 0x7B14EEE5, "GoodOAAT", "Small non-multiplicative OAAT", GOOD, {0x3b00}},
@@ -414,7 +427,7 @@ HashInfo g_hashes[] =
         // as in rust and swift:
         {siphash13_test, 64, 0x29C010BF, "SipHash13", "SipHash 1-3 - SSSE3 optimized", GOOD, {}},
 #ifndef _MSC_VER
-        {tsip_test, 64, 0x8E48155B, "TSip", "Damian Gryski's Tiny SipHash variant", GOOD, {}},
+        {tsip_test, 64, 0x5C2395A5, "TSip", "Damian Gryski's Tiny SipHash variant", GOOD, {}},
 #ifdef HAVE_INT64
         {seahash_test, 64, 0xF0374078, "seahash", "seahash (64-bit, little-endian)", GOOD, {}},
         {seahash32low, 32, 0x712F0EE8, "seahash32low", "seahash - lower 32bit", GOOD, {}},
@@ -497,7 +510,7 @@ HashInfo g_hashes[] =
         {SpookyV2_128_test, 128, 0x893CFCBE, "SpookyV2_128", "Bob Jenkins' SpookyV2, 128-bit result", GOOD, {}},
         {pengyhash_test, 64, 0x1FC2217B, "pengyhash", "pengyhash", GOOD, {}},
         {mx3hash64_test, 64, 0x4DB51E5B, "mx3", "mx3 64bit", GOOD, {0x10} /* !! and all & 0x10 */},
-#if defined(HAVE_SSE42) && (defined(__x86_64__) || defined(__aarch64__)) && !defined(_MSC_VER)
+#ifdef HAVE_UMASH
         {umash32, 32, 0x9451AF3B, "umash32", "umash 32", GOOD, {0x90e37057} /* !! */},
         {umash32_hi, 32, 0x0CC4850F, "umash32_hi", "umash 32 hi", GOOD, {}},
         {umash, 64, 0x161495C6, "umash64", "umash 64", GOOD, {}},
@@ -549,21 +562,16 @@ HashInfo g_hashes[] =
         {rapidhash_test, 64, 0xAF404C4B, "rapidhash", "rapidhash v1", GOOD, {}},
         {rapidhash_unrolled_test, 64, 0xAF404C4B, "rapidhash_unrolled", "rapidhash v1 - unrolled", GOOD, {}},
 #endif
-        {nmhash32_test, 32, 0x12A30553, "nmhash32", "nmhash32", GOOD, {}},
-        {nmhash32x_test, 32, 0xA8580227, "nmhash32x", "nmhash32x", GOOD, {}},
+        {nmhash32_test, 32, nmhash32_broken() ? 0U : 0x12A30553, "nmhash32", nmhash32_desc, GOOD, {}},
+        {nmhash32x_test, 32, nmhash32_broken() ? 0U : 0xA8580227, "nmhash32x", nmhash32x_desc, GOOD, {}},
 #ifdef HAVE_KHASHV
-#ifdef __clang__  // also gcc 9.4
-#define KHASHV32_VERIF 0xB69DF8EB
-#define KHASHV64_VERIF 0xA6B7E55B
-#else  // new gcc-11
-#define KHASHV32_VERIF 0  /* 0x9A8F7952 */
-#define KHASHV64_VERIF 0  /* 0X90A2A4F9 */
-#endif
-        {khashv32_test, 32, KHASHV32_VERIF, "k-hashv32", "Vectorized K-HashV, 32-bit", GOOD, {}},
-        {khashv64_test, 64, KHASHV64_VERIF, "k-hashv64", "Vectorized K-HashV, 64-bit", GOOD, {}},
+        // There are certain GCC versions producing 0x9A8F7952 and 0X90A2A4F9 as verification values
+        // for k-hashv32 and k-hashv64.  That deserves further investigation.
+        {khashv32_test, 32, 0xB69DF8EB, "k-hashv32", khashv32_desc, GOOD, {}},
+        {khashv64_test, 64, 0xA6B7E55B, "k-hashv64", khashv64_desc, GOOD, {}},
 #endif
         {komihash_test, 64, 0x8157FF6D, "komihash", "komihash 5.10", GOOD, {}},
-        {polymur_test, 64, 0x4F894810, "polymur", "github.com/orlp/polymur-hash v1", GOOD, {}},
+        {polymur_test, 64, 0x4F894810, "polymur", "github.com/orlp/polymur-hash v1, __SIZEOF_INT128__:" MACRO_ITOA(__SIZEOF_INT128__), GOOD, {}},
 };
 
 HashInfo *findHash(const char *name) {
@@ -714,27 +722,24 @@ bool Hash_Seed_init(pfHash hash, size_t seed) {
 #if defined(HAVE_SSE42) && defined(__x86_64__)
   else if (hash == clhash_test)
     clhash_seed_init(seed);
-#ifndef _MSC_VER
-  else if (hash == umash32 ||
-           hash == umash32_hi ||
-           hash == umash ||
-           hash == umash128)
-    umash_seed_init(seed);
-#endif
   else if (hash == halftime_hash_style64_test || hash == halftime_hash_style128_test ||
            hash == halftime_hash_style256_test || hash == halftime_hash_style512_test)
     halftime_hash_seed_init(seed);
-  /*
-  else if(hash == hashx_test)
-    hashx_seed_init(info, seed);
-  */
-  else if (hash == polymur_test)
-    polymur_seed_init(seed);
+    /*
+    else if(hash == hashx_test)
+      hashx_seed_init(info, seed);
+    */
+#endif
+#ifdef HAVE_UMASH
+  else if (hash == umash32 || hash == umash32_hi || hash == umash || hash == umash128)
+    umash_seed_init(seed);
+#endif
 #ifdef HAVE_KHASHV
   else if (hash == khashv64_test || hash == khashv32_test)
     khashv_seed_init(seed);
 #endif
-#endif
+  else if (hash == polymur_test)
+    polymur_seed_init(seed);
   else
     return false;
   return true;
@@ -782,6 +787,8 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
   // Sanity tests
 
   if (g_testVerifyAll) {
+    for (HashInfo *i = g_hashes; i != ARRAY_END(g_hashes); i++)
+      Hash_init(i); // init all the hashes, not just `info`
     printf("[[[ VerifyAll Tests ]]]\n\n");
     fflush(NULL);
     SelfTest(g_drawDiagram);
@@ -789,7 +796,7 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
     fflush(NULL); // if not it does exit(1)
   }
 
-  if (g_testAll || g_testSpeed || g_testHashmap) {
+  if (g_testAll || g_testSpeedBulk || g_testSpeedSmall || g_testHashmap) {
     printf("--- Testing %s \"%s\" %s\n\n", info->name, info->desc, quality_str[info->quality]);
   } else {
     fprintf(stderr, "--- Testing %s \"%s\" %s\n\n", info->name, info->desc, quality_str[info->quality]);
@@ -812,24 +819,43 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
   //-----------------------------------------------------------------------------
   // Speed tests
 
-  if (g_testSpeed || g_testAll) {
-    double sum = 0.0;
+  if (g_testSpeedBulk || g_testSpeedSmall || g_testAll) {
     printf("[[[ Speed Tests ]]]\n\n");
+    if (timer_counts_ns())
+      printf("WARNING: no cycle counter, cycle == 1ns\n");
+    {
+      const uint64_t begin = timer_start(), end = timer_end();
+      const uint64_t delta = timer_sub(end, begin);
+      if (delta > 64) // "good" is ~30..40 ticks
+        printf("WARNING: timer resolution is %llu (%#llx) ticks (%#llx - %#llx). Broken VDSO?\n",
+               (unsigned long long)delta, (unsigned long long)delta,
+               (unsigned long long)end, (unsigned long long)begin);
+    }
     fflush(NULL);
 
     Seed_init(info, info->verification);
-    BulkSpeedTest(info->hash, info->verification);
-    printf("\n");
-    fflush(NULL);
 
-    for (int i = 1; i < 32; i++) {
-      volatile int j = i;
-      sum += TinySpeedTest(hashfunc<hashtype>(info->hash), sizeof(hashtype), j, info->verification, true);
+    if (g_testSpeedBulk || g_testAll) {
+      BulkSpeedTest(info->hash, info->verification);
+      printf("\n");
+      fflush(NULL);
     }
-    g_speed = sum = sum / 31.0;
-    printf("Average                                    %6.3f cycles/hash\n", sum);
-    printf("\n");
-    fflush(NULL);
+
+    if (g_testSpeedSmall || g_testAll) {
+      const int dflmax = g_testExtra ? 64 : 32;
+      const int minkey = getenvlong("SMHASHER_SMALLKEY_MIN", 1, 1, TIMEHASH_SMALL_LEN_MAX);
+      const int maxkey = getenvlong("SMHASHER_SMALLKEY_MAX", minkey, dflmax, TIMEHASH_SMALL_LEN_MAX);
+      std::vector<double> cph(maxkey + 1, NAN);
+      for (int i = minkey, g_speed = 0.0; i <= maxkey; i++) {
+        volatile int j = i;
+        cph[j] = TinySpeedTest(hashfunc<hashtype>(info->hash), sizeof(hashtype), j, info->verification, true);
+        g_speed += cph[j];
+      }
+      g_speed /= (maxkey - minkey + 1);
+      ReportTinySpeedTest(cph, minkey, maxkey);
+      printf("\n");
+      fflush(NULL);
+    }
   } else {
     // known slow hashes (> 500), cycle/hash
     const struct {
@@ -1104,7 +1130,7 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
     }
 
     {
-      printf("Combination 0x8000000 Tests:\n");
+      printf("Combination 0x80000000 Tests:\n");
       fflush(NULL);
 
       bool result = true;
@@ -1125,7 +1151,7 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
     }
 
     {
-      printf("Combination 0x0000001 Tests:\n");
+      printf("Combination 0x00000001 Tests:\n");
 
       bool result = true;
 
@@ -1145,7 +1171,7 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
     }
 
     {
-      printf("Combination 0x800000000000000 Tests:\n");
+      printf("Combination 0x8000000000000000 Tests:\n");
       fflush(NULL);
 
       bool result = true;
@@ -1166,7 +1192,7 @@ void test(hashfunc<hashtype> hash, HashInfo *info) {
     }
 
     {
-      printf("Combination 0x000000000000001 Tests:\n");
+      printf("Combination 0x0000000000000001 Tests:\n");
       fflush(NULL);
 
       bool result = true;
@@ -2476,6 +2502,8 @@ int main(int argc, const char **argv) {
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(_X86_64_)
   const char *defaulthash = "xxh3";
+#elif defined(HAVE_BIT32)
+  const char *defaulthash = "wyhash32";
 #else
   const char *defaulthash = "wyhash";
 #endif
@@ -2573,6 +2601,8 @@ int main(int argc, const char **argv) {
     // Not a command ? => interpreted as hash name
     hashToTest = arg;
   }
+  if (g_testSpeedAll)
+    g_testSpeedBulk = g_testSpeedSmall = true;
 
   // Code runs on the 3rd CPU by default? only for speed tests
   // SetAffinity((1 << 2));

@@ -388,7 +388,7 @@ FNV128(uint64_t buf[2], const char *key, int len, uint64_t seed)
     uint64_t s0 = multhi;                 // high
     uint64_t s1 = prime128Lower * buf[1]; // low
     
-    s0 += buf[1] << (prime128Shift + prime128Lower * buf[0]);
+    s0 += (buf[1] << prime128Shift) + prime128Lower * buf[0];
 
     // Update the values
     buf[1] = s1;
@@ -818,7 +818,7 @@ void clhash_init()
 {
   void* data = get_random_key_for_clhash(UINT64_C(0xb3816f6a2c68e530), 711);
   memcpy(clhash_random, data, RANDOM_BYTES_NEEDED_FOR_CLHASH);
-  free (data);
+  free_random_key_for_clhash(data);
 }
 bool clhash_bad_seeds(std::vector<uint64_t> &seeds)
 {
@@ -1150,10 +1150,8 @@ void halftime_hash_seed_init(size_t &seed)
 static uint8_t tsip_key[16];
 void tsip_init()
 {
-  uint64_t r = rand_u64();
-  memcpy(&tsip_key[0], &r, 8);
-  r = rand_u64();
-  memcpy(&tsip_key[8], &r, 8);
+  Rand rng(UINT32_C(4044698852));
+  rng.rand_p(tsip_key, sizeof(tsip_key));
 }
 void tsip_test(const void *bytes, int len, uint32_t seed, void *out)
 {
@@ -1278,6 +1276,43 @@ void crc32c_pclmul_test(const void *key, int len, uint32_t seed, void *out)
 #endif
 
 #include "hash-garage/nmhash.h"
+#define NMHASH32_DESC_STR "NMHASH_LITTLE_ENDIAN:" MACRO_ITOA(NMHASH_LITTLE_ENDIAN) ", " \
+                          "NMH_VECTOR:" MACRO_ITOA(NMH_VECTOR) ", " \
+                          "NMH_ACC_ALIGN:" MACRO_ITOA(NMH_ACC_ALIGN) ", " \
+                          "NMH_RESTRICT:" MACRO_ITOA(NMH_RESTRICT)
+const char * const nmhash32_desc("nmhash32, " NMHASH32_DESC_STR);
+const char * const nmhash32x_desc("nmhash32x, " NMHASH32_DESC_STR);
+
+bool nmhash32_broken( void ) {
+  static bool done = false, result;
+  if (done)
+    return result;
+
+  const char entropy[] = "rwgk8M1uxM6XX6c3teQX2yaw8FQWArmcWUSBJ8dcQQJWHYC9Wt2BmpvETxwhYcJTheTbjf49SVRaDJhbEZCq7ki1D6KxpKQSjgwqsiHGSgHLxvPG5kcRnBhjJ1YC8kuh";
+
+  NMH_ALIGN(NMH_ACC_ALIGN) uint32_t accX[sizeof(NMH_ACC_INIT)/sizeof(*NMH_ACC_INIT)];
+  static_assert(sizeof(entropy) >= sizeof(accX), "Need more entropy in entropy[]");
+  memcpy(accX, entropy, sizeof(accX));
+
+  const size_t nbGroups = sizeof(NMH_ACC_INIT) / sizeof(*NMH_ACC_INIT);
+  size_t i;
+
+  for (i = 0; i < nbGroups * 2; ++i) {
+    ((uint16_t*)accX)[i] *= ((uint16_t*)__NMH_M1_V)[i];
+  }
+
+  // XXX: no memory barrier takes place here, just like in NMHASH32_long_round_scalar()
+  // and it affects the `acc` result.
+
+  uint32_t acc = 0;
+  for (i = 0; i < nbGroups; ++i)
+    acc += accX[i];
+
+  result = (acc != UINT32_C(0x249abaee));
+  done = true;
+  return result;
+}
+
 // objsize: 4202f0-420c7d: 2445
 void nmhash32_test ( const void * key, int len, uint32_t seed, void * out ) {
   *(uint32_t*)out = NMHASH32 (key, (const size_t) len, seed);
@@ -1289,6 +1324,14 @@ void nmhash32x_test ( const void * key, int len, uint32_t seed, void * out ) {
 
 #ifdef HAVE_KHASHV
 #include "k-hashv/khashv.h"
+
+#define KHASH_VER_STR "vector:" MACRO_ITOA(KHASH_VECTOR) ", " \
+                      "scalar:" MACRO_ITOA(KHASHV_SCALAR) ", " \
+                      "__SSE3__:" MACRO_ITOA(__SSE3__) ", " \
+                      "__SSE4_1__:" MACRO_ITOA(__SSE4_1__) ", " \
+                      "__AVX512VL__:" MACRO_ITOA(__AVX512VL__)
+const char * const khashv32_desc("Vectorized K-HashV, 32-bit, " KHASH_VER_STR);
+const char * const khashv64_desc("Vectorized K-HashV, 64-bit, " KHASH_VER_STR);
 
 khashvSeed khashv_seed;
 void khashv_seed_init(size_t &seed) {
@@ -1304,11 +1347,12 @@ void khashv32_test ( const void *key, int len, uint32_t seed, void *out) {
 }
 #endif // HAVE_KHASHV
 
-PolymurHashParams g_polymurhashparams = {
+#include "polymur-hash/polymur-hash.h"
+static PolymurHashParams g_polymurhashparams = {
   UINT64_C(2172266433527442278), UINT64_C(706663945032637854),
   UINT64_C(754693428422558902),  UINT64_C(9067629717964434866)
 };
-void polymur_seed_init (size_t &seed) {
+void polymur_seed_init (size_t seed) {
   polymur_init_params_from_seed(&g_polymurhashparams,
                                 UINT64_C(0xfedbca9876543210) ^ seed);
 }

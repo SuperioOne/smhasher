@@ -905,6 +905,14 @@ inline void rmd256(const void *key, int len, uint32_t seed, void *out) {
   rmd256_process(&ltc_state, (unsigned char *)key, len);
   rmd256_done(&ltc_state, (unsigned char *)out);
 }
+#if !defined(__BYTE_ORDER__) || !defined(__ORDER_BIG_ENDIAN__) || !defined(__ORDER_LITTLE_ENDIAN__)
+#error __BYTE_ORDER__ and __ORDER_BIG_ENDIAN__ should be defined.
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#undef HAVE_EDONR // BE build fails due to missing rhash_swap_copy_str_to_u32()
+#else
+#define HAVE_EDONR
+#endif
+#ifdef HAVE_EDONR
 #include "edonr.h"
 inline void edonr224(const void *key, int len, uint32_t seed, void *out) {
   // objsize
@@ -922,6 +930,7 @@ inline void edonr256(const void *key, int len, uint32_t seed, void *out) {
   rhash_edonr256_update(&ctx, (unsigned char *)key, len);
   rhash_edonr256_final(&ctx, (unsigned char *)out);
 }
+#endif
 // Keccak:
 inline void sha3_256_64(const void *key, int len, uint32_t seed, void *out) {
   // objsize
@@ -1092,8 +1101,8 @@ inline void blake3c_test(const void *key, int len, unsigned seed, void *out) {
 #if 1
   blake3_hasher_init(&hasher);
   // See GH #168
-  hasher.key[0] ^= (uint32_t)seed;
-  hasher.chunk.cv[0] ^= (uint32_t)seed;
+  hasher.key[0] ^= seed;
+  hasher.chunk.cv[0] ^= seed;
 #else
   // same speed
   uint32_t seed_key[8] = {0x6A09E667 ^ (uint32_t)seed, 0xBB67AE85, 0x3C6EF372,
@@ -1234,6 +1243,9 @@ void asconhashv12_64(const void *key, int len, uint32_t seed, void *out);
 void asconhashv12_256(const void *key, int len, uint32_t seed, void *out);
 }
 
+extern const char *const nmhash32_desc;
+extern const char *const nmhash32x_desc;
+bool nmhash32_broken(void);
 void nmhash32_test(const void *key, int len, uint32_t seed, void *out);
 void nmhash32x_test(const void *key, int len, uint32_t seed, void *out);
 
@@ -1242,7 +1254,8 @@ extern "C" {
 #include "pearson_hash/pearsonb.h"
 // objsize: 417b50-417dfb = 683
 inline void pearsonb64_test(const void *key, int len, uint32_t seed, void *out) {
-  *(uint64_t *)out = pearsonb_hash_64((const uint8_t *)key, (size_t)len, (uint64_t)seed);
+  // pearsonb_hash_64(): caller is responsible for storing it the big endian way to memory
+  *(uint64_t *)out = htobe64(pearsonb_hash_64((const uint8_t *)key, (size_t)len, (uint64_t)seed));
 }
 // objsize: 41a1f0-41a65e: 1134
 inline void pearsonb128_test(const void *key, int len, uint32_t seed, void *out) {
@@ -1309,13 +1322,13 @@ inline void khash64_test(const void *key, int len, uint32_t seed, void *out) {
 #ifndef HAVE_BIT32
 void khashv_seed_init(size_t &seed);
 // call to khashv_hash_vector not inlined.
+extern const char *const khashv32_desc;
+extern const char *const khashv64_desc;
 void khashv32_test(const void *key, int len, uint32_t seed, void *out);
 void khashv64_test(const void *key, int len, uint32_t seed, void *out);
 #endif
 
-#include "polymur-hash/polymur-hash.h"
-extern PolymurHashParams g_polymurhashparams;
-void polymur_seed_init(size_t &seed);
+void polymur_seed_init(size_t seed);
 void polymur_test(const void *key, int len, uint32_t seed, void *out);
 
 /* This version of CRC64 can approach HW crc speeds without hardware support,
