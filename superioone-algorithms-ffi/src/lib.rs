@@ -1,4 +1,4 @@
-use algorithms::hash::{
+use algorithms_hash::{
     cityhash::hash_fn::{
         cityhash_128, cityhash_128_with_seed, cityhash_32, cityhash_64, cityhash_64_with_seed,
         cityhash_crc128_with_seed, cityhash_crc256,
@@ -6,10 +6,7 @@ use algorithms::hash::{
     crc::hash_fn::crc32c_with_initial,
     murmur3::hash_fn::{murmurhash3_128, murmurhash3_32},
 };
-use std::ffi::c_void;
-use std::mem::size_of;
-use std::ptr::copy_nonoverlapping;
-use std::slice::from_raw_parts;
+use std::{ffi::c_void, mem::size_of, ptr::copy_nonoverlapping, slice::from_raw_parts};
 
 // FFI wrapper for testing purposes, incorrect length, null ptr cases are ignored.
 

@@ -12,4 +12,4 @@ codegen-units=1
 lto = true
 
 [dependencies]
-algorithms = {  path = "../superioone-algorithms" }
+algorithms_hash = { path = "../superioone-algorithms/algorithms_hash" }

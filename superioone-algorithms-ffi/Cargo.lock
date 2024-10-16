@@ -3,12 +3,12 @@
 version = 3
 
 [[package]]
-name = "algorithms"
+name = "algorithms_hash"
 version = "0.1.0"
 
 [[package]]
 name = "superioone-algorithms-ffi"
 version = "0.1.0"
 dependencies = [
- "algorithms",
+ "algorithms_hash",
 ]
